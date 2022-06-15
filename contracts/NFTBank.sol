@@ -15,7 +15,7 @@ contract NFTBank is Ownable {
     uint bankFee;
     uint bankCommission;
 
-    
+  // Creating a structure to store loan details
 
     struct loan{
 
@@ -35,11 +35,15 @@ contract NFTBank is Ownable {
 
     }
 
+    //To keep a record of payments done by any lendee towards a sanctioned loan
+
     struct loanPayment{
         uint _loanId;
         uint _paidBack;
         bool _default;
     }
+
+    //To store details of all applications for loan
 
     struct loanApplication{
         
@@ -64,7 +68,7 @@ contract NFTBank is Ownable {
     mapping(uint=>loanApplication) public allApplications;
     mapping(address=>loanApplication[]) public loanApplications;
 
-
+    //Creating a function so any wallet can showcase their NFT and apply for a loan against it
     function applyForLoan(address _nftAddress, uint _nftId, uint _interestRate, uint _tenure, uint _amount) public {
 
         require(IERC721(_nftAddress).ownerOf(_nftId)==msg.sender, "Wallet does not own this NFT");
@@ -78,6 +82,7 @@ contract NFTBank is Ownable {
 
     }
 
+    //This will store the details of any offers given by someone to a loan application
     struct offer{
         
         uint _applicationId;
@@ -96,6 +101,8 @@ contract NFTBank is Ownable {
 
     uint offerId;
 
+    //This function can be used to create any offer to a particular loan application if they want to offer different interest rate
+
     function createOffer(uint _applicationId, uint _interestRate) public payable {
 
         require(applicationId>=_applicationId,"This application does not exist");
@@ -110,6 +117,8 @@ contract NFTBank is Ownable {
         totalOffers[offerId]= offer(_applicationId,msg.sender, _interestRate, false,false, false);
         
     }
+
+    //Anyone can cancel their offer if it has not been accepted & processed 
 
     function cancelOffer(uint _offerId) public{
 
@@ -126,6 +135,8 @@ contract NFTBank is Ownable {
         }
 
     }
+
+    //Person who applies for the loan can accept an offer if he likes the interest rate offered
 
     function acceptOffer(uint _offerId) public {
 
@@ -146,7 +157,8 @@ contract NFTBank is Ownable {
 
 
     }
-
+    
+    //If a person likes a loan application and the interest rate mentioned they can directly lend to that wallet if the application is still open & not processed for loan
     function lend(uint _applicationId) public payable{
 
         require(msg.value>=allApplications[_applicationId]._loanAmount);
@@ -155,7 +167,7 @@ contract NFTBank is Ownable {
     }
 
     
-
+    //This is an internal function which generates a loan and enters it in the books whenever someone accepts the offer or directly lends based on open applications
     function processLoanApplication(uint _applicationId, uint _interestRate, address _lender, address _lendee, uint _loanAmount) private returns(bool) {
 
         require(allApplications[_applicationId]._approved==false, "Loan application already approved");
@@ -164,7 +176,7 @@ contract NFTBank is Ownable {
         
 
         
-        //Seize the colletral
+        //Seize the NFT colletral by making the smart contract the owner of the NFT
         IERC721(allApplications[_applicationId]._nftAddress).transferFrom(_lendee, address(this), 
         allApplications[_applicationId]._tokenId);
 
@@ -194,6 +206,8 @@ contract NFTBank is Ownable {
         
 
     }
+
+    //This calculates the EMI a person needs to pay to repay their loan
     function calculateEMI(uint _interestRate, uint _loanAmount, uint _tenure) private returns(uint){
 
         
@@ -207,6 +221,7 @@ contract NFTBank is Ownable {
 
     }
 
+    //Once a loan is approved, the person can withdraw his loan amount from the smart contract
     function withdrawLoanAmount(uint _loanId, uint _amount) public {
 
         require(allLoans[_loanId]._lendee==msg.sender);
@@ -223,6 +238,7 @@ contract NFTBank is Ownable {
 
     }
 
+    //Lendee can use this function to pay back his loan
     function payEMI(uint _loanId) public payable {
 
         require(allLoans[_loanId]._closed==false);
@@ -230,6 +246,7 @@ contract NFTBank is Ownable {
 
         loanPayments[_loanId]._paidBack += msg.value;
 
+        //We charge a small commission on each re-payment
         uint commission = msg.value*bankFee/1000;
 
         bankCommission+=commission;
@@ -237,6 +254,7 @@ contract NFTBank is Ownable {
 
     }
 
+    //If the loan is all paid up then it can be closed and the NFT can be released back to the lendee
     function closePaidUpLoan(uint _loanId) public {
 
         uint _payableAmount = allLoans[_loanId]._loanAmount +(allLoans[_loanId]._emi*allLoans[_loanId]._tenure);
@@ -254,6 +272,7 @@ contract NFTBank is Ownable {
 
     }
 
+    //If Lendee defaults the NFT is transferred to the lender and loan is closed
     function closeDefaultedLoan(uint _loanId) public{
         require(block.timestamp>=allLoans[_loanId]._endTime);
         uint _payableAmount = allLoans[_loanId]._loanAmount +(allLoans[_loanId]._emi*allLoans[_loanId]._tenure);
@@ -265,7 +284,7 @@ contract NFTBank is Ownable {
 
 
     }
-
+    //Contract owner can set their commission % for each loan re-payment transaction. Denomination 1000
     function setFee(uint _bankFee) public onlyOwner{
         bankFee =_bankFee;
     }
